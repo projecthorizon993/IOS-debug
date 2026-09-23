@@ -146,9 +146,9 @@ final class CameraManager: NSObject, ObservableObject {
             if metadataOutput.connections.isEmpty, session.canAddOutput(metadataOutput) {
                 session.addOutput(metadataOutput)
                 metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-                if metadataOutput.availableMetadataObjectTypes.contains(.qr) {
-                    metadataOutput.metadataObjectTypes = [.qr, .ean13, .aztec]
-                }
+                let wanted: [AVMetadataObject.ObjectType] = [.qr, .ean13, .aztec]
+                let available = metadataOutput.availableMetadataObjectTypes
+                metadataOutput.metadataObjectTypes = wanted.filter { available.contains($0) }
             }
             try device.lockForConfiguration()
             device.isSubjectAreaChangeMonitoringEnabled = true
