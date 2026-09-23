@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CameraApp — UI Preview (OPPO style)</title>
+<style>
+  :root { --accent: #FF9F0A; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: #101014; color: #fff; font-family: -apple-system, "SF Pro Text", Inter, Segoe UI, sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 24px 12px 40px;
+  }
+  h1 { font-size: 18px; font-weight: 700; }
+  .sub { color: #999; font-size: 12px; margin: 4px 0 16px; }
+  .phone {
+    width: 375px; height: 780px; background: #000; border-radius: 48px; padding: 12px;
+    box-shadow: 0 0 0 2px #3a3a3f, 0 24px 80px rgba(0,0,0,.7); position: relative;
+  }
+  .notch {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 150px; height: 28px; background: #000; border-radius: 0 0 18px 18px; z-index: 30;
+  }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 38px; overflow: hidden; background: #000; }
+  .view { position: absolute; inset: 0; }
+  /* fake viewfinder scene */
+  .scene {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 72% 22%, rgba(255,236,180,.9) 0 34px, rgba(255,236,180,0) 36px),
+      linear-gradient(180deg, #2b4a7a 0%, #7aa0c8 34%, #c9b489 45%, #4a5d3a 60%, #22331f 100%);
+  }
+  .scene::after {
+    content: ""; position: absolute; inset: 0;
+    background:
+      linear-gradient(rgba(255,255,255,.09) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.09) 1px, transparent 1px);
+    background-size: 33.4% 33.4%;
+  }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 12; }
+  .flash.on { opacity: .55; }
+  .reticle {
+    position: absolute; width: 64px; height: 64px; margin: -32px 0 0 -32px; z-index: 11;
+    border: 2px solid var(--accent); border-radius: 8px; display: none;
+  }
+  .reticle::after { content: ""; position: absolute; inset: 26px; background: var(--accent); border-radius: 50%; }
+  .reticle.show { display: block; animation: pop .9s ease forwards; }
+  @keyframes pop { 0% { transform: scale(1.4); opacity: 0; } 15% { opacity: 1; } 30% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+  .toast {
+    position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 13;
+    background: rgba(0,0,0,.65); padding: 6px 12px; border-radius: 8px; font-size: 12px; display: none;
+  }
+  .topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; padding: 50px 14px 0; gap: 8px; }
+  .iconbtn {
+    width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(0,0,0,.45); color: #fff; font-size: 15px;
+  }
+  .iconbtn.accent { color: var(--accent); }
+  .pill {
+    margin: 0 auto; font-size: 12px; background: rgba(0,0,0,.45); padding: 6px 12px; border-radius: 20px; color: rgba(255,255,255,.92);
+  }
+  .pill.rec { background: #e03131; font-variant-numeric: tabular-nums; }
+  .controls { position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; padding: 10px 0 22px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,.55) 40%); }
+  .zoompills { display: flex; justify-content: center; gap: 10px; margin-bottom: 6px; }
+  .zpill {
+    border: 0; cursor: pointer; font-size: 13px; padding: 7px 12px; border-radius: 20px;
+    background: rgba(0,0,0,.55); color: #fff;
+  }
+  .zpill.sel { background: var(--accent); color: #000; font-weight: 700; }
+  input[type=range] { width: calc(100% - 56px); margin: 2px 28px 4px; accent-color: var(--accent); }
+  .propanel {
+    margin: 4px 12px 8px; max-height: 210px; overflow-y: auto; font-size: 12px;
+    background: rgba(0,0,0,.55); border-radius: 12px; padding: 10px 12px; display: none;
+  }
+  .propanel.open { display: block; }
+  .prow { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+  .prow label { width: 86px; color: #ddd; }
+  .prow output { width: 64px; text-align: right; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .prow input[type=range] { flex: 1; width: auto; margin: 0; }
+  .prow .mini { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; font-size: 11px; padding: 4px 9px; border-radius: 14px; cursor: pointer; }
+  .chip.sel { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
+  .qrow { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 2px 0 4px; font-size: 12px; }
+  .qrow select { background: rgba(0,0,0,.55); color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 5px 8px; }
+  .modes { display: flex; justify-content: center; gap: 30px; padding: 4px 0 8px; }
+  .mode { background: none; border: 0; cursor: pointer; color: rgba(255,255,255,.6); font-size: 14px; letter-spacing: 1px; padding: 2px 0; }
+  .mode.sel { color: var(--accent); font-weight: 700; }
+  .mode .dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; margin: 3px auto 0; }
+  .mode.sel .dot { background: var(--accent); }
+  .shutterrow { display: flex; align-items: center; padding: 0 36px; }
+  .thumb { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg,#7aa0c8,#22331f); border: 2px solid var(--accent); }
+  .thumb .n { font-size: 10px; background: rgba(0,0,0,.6); border-radius: 6px; padding: 1px 5px; position: relative; top: 26px; left: 24px; }
+  .shutter { margin: 0 auto; width: 72px; height: 72px; border-radius: 50%; border: 0; cursor: pointer; position: relative; background: #fff; }
+  .shutter::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 5px solid rgba(255,255,255,.4); }
+  .shutter::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 2px solid var(--accent); }
+  .shutter.video { background: #e03131; }
+  .shutter.video::after { border-color: #fff; }
+  .shutter.video.rec::after { border: 0; }
+  .shutter.video.rec .sq { display: block; }
+  .sq { display: none; width: 26px; height: 26px; background: #fff; border-radius: 6px; margin: 0 auto; position: relative; }
+  /* gallery / theme screens */
+  .page { position: absolute; inset: 0; background: #101014; z-index: 20; display: none; flex-direction: column; padding: 56px 16px 12px; overflow-y: auto; }
+  .page.open { display: flex; }
+  .page h2 { font-size: 20px; margin-bottom: 12px; }
+  .card { background: #1c1c21; border-radius: 14px; padding: 14px; margin-bottom: 12px; font-size: 13px; }
+  .card h3 { font-size: 13px; margin-bottom: 8px; color: #bbb; text-transform: uppercase; letter-spacing: 1px; }
+  .bigbtn { background: var(--accent); color: #000; font-weight: 700; border: 0; border-radius: 10px; padding: 10px 14px; cursor: pointer; font-size: 13px; }
+  .ghostbtn { background: transparent; border: 1px solid rgba(255,255,255,.3); color: #fff; border-radius: 10px; padding: 9px 13px; cursor: pointer; font-size: 13px; }
+  .swatches { display: flex; gap: 10px; margin: 10px 0; align-items: center; flex-wrap: wrap; }
+  .sw { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+  .sw.sel { border-color: #fff; }
+  .samplephoto { height: 150px; border-radius: 12px; background: linear-gradient(180deg,#2b4a7a,#c9b489 55%,#22331f); margin-bottom: 10px; }
+  .tabbar { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+  .tabbar button { background: #1c1c21; color: #bbb; border: 0; border-radius: 20px; padding: 8px 18px; cursor: pointer; font-size: 13px; }
+  .tabbar button.sel { background: var(--accent); color: #000; font-weight: 700; }
+  .hint { max-width: 375px; color: #888; font-size: 12px; margin-top: 12px; line-height: 1.6; }
+  .hint code { color: #ccc; }
+</style>
+</head>
+<body>
+  <h1>CameraApp · OPPO-style UI preview</h1>
+  <div class="sub">Interactive mock — click around. Mirror changes here before editing Swift.</div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+      <!-- CAMERA -->
+      <div class="view" id="cameraView">
+        <div class="scene" id="scene"></div>
+        <div class="flash" id="flash"></div>
+        <div class="reticle" id="reticle"></div>
+        <div class="toast" id="toast">AF / AE locked</div>
+        <div class="topbar">
+          <button class="iconbtn" id="torchBtn" title="Torch">⚡</button>
+          <div class="pill" id="statusPill">1×</div>
+          <button class="iconbtn accent" id="themeBtn" title="Theme">🎨</button>
+          <button class="iconbtn" id="logBtn" title="Logs">📄</button>
+        </div>
+        <div class="controls">
+          <div class="zoompills" id="zoomPills">
+            <button class="zpill sel" data-z="1">1×</button>
+            <button class="zpill" data-z="2">2×</button>
+            <button class="zpill" data-z="4">4×</button>
+          </div>
+          <input type="range" id="zoomSlider" min="1" max="8" step="0.1" value="1">
+          <div class="propanel" id="proPanel">
+            <div class="prow"><label>EV bias</label><input type="range" id="ev" min="-3" max="3" step="0.1" value="0"><output id="evO">+0.0</output></div>
+            <div class="prow"><label>ISO</label><input type="range" id="iso" min="34" max="2172" step="1" value="100"><output id="isoO">100</output></div>
+            <div class="prow"><label>Shutter</label><input type="range" id="shut" min="0" max="100" step="1" value="30"><output id="shutO">1/120</output></div>
+            <div class="prow"><label>Warm↔Cool</label><input type="range" id="wb" min="3000" max="8000" step="50" value="5200"><output id="wbO">5200K</output></div>
+            <div class="prow"><label>WB preset</label><div class="mini" id="wbChips">
+              <button class="chip" data-k="3200">Tungsten</button><button class="chip sel" data-k="5200">Day</button><button class="chip" data-k="6000">Cloudy</button><button class="chip" data-k="7000">Shade</button>
+            </div></div>
+            <div class="prow"><label>Saturation</label><input type="range" id="sat" min="0" max="2" step="0.05" value="1"><output id="satO">1.00</output></div>
+            <div class="prow"><label>Contrast</label><input type="range" id="con" min="0.5" max="1.5" step="0.05" value="1"><output id="conO">1.00</output></div>
+            <div class="prow"><label>Bright</label><input type="range" id="bri" min="-0.5" max="0.5" step="0.05" value="0"><output id="briO">0.00</output></div>
+          </div>
+          <div class="qrow" id="qrow" style="display:none">
+            <select id="quality"><option>1080p30</option><option>1080p60</option><option>4K30</option><option>4K60</option><option>1080p240</option></select>
+            <button class="iconbtn" id="micBtn" title="Mic">🎙</button>
+          </div>
+          <div class="modes" id="modes">
+            <button class="mode sel" data-m="photo">PHOTO<div class="dot"></div></button>
+            <button class="mode" data-m="video">VIDEO<div class="dot"></div></button>
+            <button class="mode" data-m="pro">PRO<div class="dot"></div></button>
+          </div>
+          <div class="shutterrow">
+            <div class="thumb"><span class="n" id="shotCount">0</span></div>
+            <button class="shutter" id="shutter"><span class="sq"></span></button>
+            <button class="iconbtn" id="flipBtn" style="width:46px;height:46px;font-size:20px" title="Flip">⇄</button>
+          </div>
+        </div>
+      </div>
+      <!-- GALLERY -->
+      <div class="page" id="galleryPage">
+        <h2>Gallery</h2>
+        <div class="samplephoto" id="samplePhoto"></div>
+        <div class="card"><h3>.cube LUT</h3>
+          <button class="bigbtn">Import .cube</button>
+          <button class="ghostbtn">Vivid</button>
+          <button class="ghostbtn">Mono</button>
+        </div>
+        <div class="card"><h3>Trim + export mp4</h3>
+          <div class="prow"><label>Start 0.0s</label><input type="range" min="0" max="10" step="0.1" value="0"></div>
+          <div class="prow"><label>End 5.0s</label><input type="range" min="0" max="10" step="0.1" value="5"></div>
+          <button class="bigbtn">Trim + Export</button>
+        </div>
+      </div>
+      <!-- THEME -->
+      <div class="page" id="themePage">
+        <h2>Theme</h2>
+        <div class="card"><h3>Custom color</h3>
+          <div class="swatches" id="swatches"></div>
+          <div class="prow"><label>Picker</label><input type="color" id="customColor" value="#ff9f0a"></div>
+          <div style="color:#888;font-size:12px">Applies to shutter ring, pills, sliders, REC + trim.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <button class="sel" data-p="camera">Camera</button>
+    <button data-p="gallery">Gallery</button>
+    <button data-p="theme">Theme</button>
+  </div>
+  <div class="hint">Open <code>preview.html</code> straight from the repo in any browser — no server needed.<br>Accent presets mirror <code>AppTheme.presets</code> in <code>Sources/UI/Theme.swift</code>.</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const root = document.documentElement;
+let mode = "photo", zoom = 1, shots = 0, rec = false, recT = 0, recTimer = null, front = false;
+
+// theme
+const presets = ["#FF9F0A","#0A84FF","#30D158","#FF375F","#BF5AF2","#FFD60A","#FFFFFF"];
+const sw = $("swatches");
+presets.forEach((hex, i) => {
+  const b = document.createElement("button");
+  b.className = "sw" + (i === 0 ? " sel" : ""); b.style.background = hex; b.title = hex;
+  b.onclick = () => { setAccent(hex); [...sw.children].forEach(x => x.classList.remove("sel")); b.classList.add("sel"); };
+  sw.appendChild(b);
+});
+function setAccent(hex) { root.style.setProperty("--accent", hex); $("customColor").value = hex; }
+$("customColor").oninput = e => setAccent(e.target.value);
+$("themeBtn").onclick = () => showPage("theme");
+
+// pages
+function showPage(p) {
+  $("galleryPage").classList.toggle("open", p === "gallery");
+  $("themePage").classList.toggle("open", p === "theme");
+  document.querySelectorAll(".tabbar button").forEach(b => b.classList.toggle("sel", b.dataset.p === p));
+}
+document.querySelectorAll(".tabbar button").forEach(b => b.onclick = () => showPage(b.dataset.p));
+$("logBtn").onclick = () => alert("Logs sheet (in-app log export lives here in the real app).");
+
+// focus tap
+$("scene").onclick = e => {
+  const r = e.target.getBoundingClientRect(), ret = $("reticle");
+  ret.style.left = (e.clientX - r.left) + "px"; ret.style.top = (e.clientY - r.top) + "px";
+  ret.classList.remove("show"); void ret.offsetWidth; ret.classList.add("show");
+  const t = $("toast"); t.style.display = "block"; setTimeout(() => t.style.display = "none", 900);
+};
+
+// zoom
+function setZoom(v) {
+  zoom = Math.min(8, Math.max(1, v));
+  $("zoomSlider").value = zoom;
+  const label = zoom < 1.5 ? "1×" : zoom < 3 ? "2×" : zoom.toFixed(1) + "×";
+  $("statusPill").textContent = (mode === "pro" ? "PRO · " : "") + label;
+  document.querySelectorAll("#zoomPills .zpill").forEach(b =>
+    b.classList.toggle("sel", Math.abs(parseFloat(b.dataset.z) - zoom) < 0.15));
+}
+document.querySelectorAll("#zoomPills .zpill").forEach(b => b.onclick = () => setZoom(parseFloat(b.dataset.z)));
+$("zoomSlider").oninput = e => setZoom(parseFloat(e.target.value));
+
+// modes
+document.querySelectorAll("#modes .mode").forEach(b => b.onclick = () => {
+  if (rec) return;
+  mode = b.dataset.m;
+  document.querySelectorAll("#modes .mode").forEach(x => x.classList.toggle("sel", x === b));
+  $("proPanel").classList.toggle("open", mode === "pro");
+  $("qrow").style.display = mode === "video" ? "flex" : "none";
+  $("shutter").classList.toggle("video", mode === "video");
+  setZoom(zoom);
+});
+
+// shutter / video
+$("shutter").onclick = () => {
+  if (mode === "video") {
+    rec = !rec;
+    $("shutter").classList.toggle("rec", rec);
+    const pill = $("statusPill");
+    if (rec) {
+      recT = 0; pill.classList.add("rec"); pill.textContent = "REC 00:00";
+      recTimer = setInterval(() => { recT++; pill.textContent = "REC " + String(Math.floor(recT/60)).padStart(2,"0") + ":" + String(recT%60).padStart(2,"0"); }, 1000);
+    } else { clearInterval(recTimer); pill.classList.remove("rec"); setZoom(zoom); }
+  } else {
+    $("flash").classList.add("on"); setTimeout(() => $("flash").classList.remove("on"), 130);
+    shots++; $("shotCount").textContent = shots;
+  }
+};
+$("flipBtn").onclick = () => { if (rec) return; front = !front; toast(front ? "Front camera" : "Back camera"); };
+$("torchBtn").onclick = e => { const on = $("torchBtn").classList.toggle("accent"); toast(on ? "Torch on" : "Torch off"); };
+$("micBtn").onclick = () => toast("Mic mute toggled");
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; setTimeout(() => t.style.display = "none", 900); }
+
+// pro panel readouts
+const bind = (id, out, fmt) => $(id).oninput = e => $(out).textContent = fmt(parseFloat(e.target.value));
+bind("ev", "evO", v => (v >= 0 ? "+" : "") + v.toFixed(1));
+bind("iso", "isoO", v => Math.round(v));
+bind("sat", "satO", v => v.toFixed(2));
+bind("con", "conO", v => v.toFixed(2));
+bind("bri", "briO", v => v.toFixed(2));
+$("wb").oninput = e => { $("wbO").textContent = e.target.value + "K";
+  document.querySelectorAll("#wbChips .chip").forEach(x => x.classList.toggle("sel", +x.dataset.k === +e.target.value)); };
+$("shut").oninput = e => { const v = +e.target.value, s = Math.pow(2, v / 10 - 3) / 1000;
+  $("shutO").textContent = s >= 1 ? s.toFixed(1) + "s" : "1/" + Math.round(1 / s); };
+document.querySelectorAll("#wbChips .chip").forEach(b => b.onclick = () => {
+  $("wb").value = b.dataset.k; $("wb").oninput({ target: $("wb") });
+});
+setZoom(1);
+</script>
+</body>
+</html>
