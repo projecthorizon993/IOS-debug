@@ -15,6 +15,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Build identity
+        run: |
+          echo "ref=${{ github.ref }} sha=${{ github.sha }}"
+          git log --oneline -3
+          git describe --tags --always --dirty
+
       - name: Xcode version
         run: xcodebuild -version
 
@@ -54,6 +60,10 @@ jobs:
               s = plistlib.load(f)
           with open(dst, "rb") as f:
               d = plistlib.load(f)
+          print("BEFORE merge:")
+          for k in ["CFBundleShortVersionString", "CFBundleVersion",
+                    "NSCameraUsageDescription", "NSMicrophoneUsageDescription"]:
+              print(f"  {k} = {d.get(k)!r}")
           keys = ["CFBundleDisplayName", "CFBundleShortVersionString", "CFBundleVersion",
                   "NSCameraUsageDescription", "NSMicrophoneUsageDescription",
                   "NSPhotoLibraryAddUsageDescription", "NSPhotoLibraryUsageDescription",
