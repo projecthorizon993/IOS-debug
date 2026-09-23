@@ -37,10 +37,10 @@ enum LUTEngine {
         while i < rgb.count {
             var r = rgb[i], g = rgb[i+1], b = rgb[i+2]
             var a: Float = 1.0
-            withUnsafeBytes(of: &r) { rgba.append($0) }
-            withUnsafeBytes(of: &g) { rgba.append($0) }
-            withUnsafeBytes(of: &b) { rgba.append($0) }
-            withUnsafeBytes(of: &a) { rgba.append($0) }
+            withUnsafeBytes(of: &r) { rgba.append(contentsOf: $0) }
+            withUnsafeBytes(of: &g) { rgba.append(contentsOf: $0) }
+            withUnsafeBytes(of: &b) { rgba.append(contentsOf: $0) }
+            withUnsafeBytes(of: &a) { rgba.append(contentsOf: $0) }
             i += 3
         }
         return CubeLUT(size: size, data: rgba)
