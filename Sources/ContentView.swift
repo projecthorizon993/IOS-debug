@@ -48,38 +48,39 @@ struct GalleryView: View {
                                     .stroke(lut != nil ? accent : Color.clear, lineWidth: 2)
                                     .padding(.horizontal)
                             )
-                        HStack {
-                            Button("Import .cube LUT") { showLUTImporter = true }
-                            if lut != nil {
-                                Button("Clear LUT") { lut = nil; filteredImage = nil; lutName = "" }
+                        // Hasselblad style cards: NATURAL / VIVID / MONO / IMPORT
+                        HStack(spacing: 12) {
+                            styleCard(title: "NATURAL", systemImage: "circle", selected: camera.style.isNeutral) {
+                                camera.style = .neutral
                             }
-                            if lut != nil {
-                                Button("Save filtered") {
-                                    if let out = filteredImage {
-                                        UIImageWriteToSavedPhotosAlbum(out, nil, nil, nil)
-                                    }
-                                }
+                            styleCard(title: "VIVID", systemImage: "sun.max", selected: camera.style.saturation > 1.2 && camera.style.contrast > 1.05) {
+                                var s = camera.style; s.saturation = 1.4; s.contrast = 1.1; camera.style = s
+                            }
+                            styleCard(title: "MONO", systemImage: "circle.lefthalf.filled", selected: !camera.style.isNeutral && camera.style.saturation == 0) {
+                                var s = camera.style; s.saturation = 0; camera.style = s
+                            }
+                            styleCard(title: "IMPORT", systemImage: "plus", selected: lut != nil) {
+                                showLUTImporter = true
                             }
                         }
-                        .font(.footnote)
-                        .tint(accent)
                         if !lutName.isEmpty {
-                            Text("LUT: \(lutName)").font(.caption).foregroundColor(.secondary)
+                            HStack {
+                                Text("LUT: \(lutName)").font(.caption).foregroundColor(.secondary)
+                                Button("Clear") { lut = nil; filteredImage = nil; lutName = "" }
+                                    .font(.caption)
+                            }
                         }
                         if !camera.style.isNeutral {
                             Text("Style: \(Int(camera.style.temperature))K tint \(Int(camera.style.tint)) sat \(String(format: "%.2f", camera.style.saturation)) con \(String(format: "%.2f", camera.style.contrast))")
                                 .font(.caption).foregroundColor(.secondary)
-                            HStack {
-                                Button("Save styled") {
-                                    if let out = camera.style.apply(to: img) {
-                                        UIImageWriteToSavedPhotosAlbum(out, nil, nil, nil)
-                                    }
-                                }
-                                Button("Reset style") { camera.style = .neutral }
-                            }
-                            .font(.footnote)
-                            .tint(accent)
                         }
+                        Button("SAVE COPY") {
+                            let base = filteredImage ?? img
+                            let out = camera.style.apply(to: base) ?? base
+                            UIImageWriteToSavedPhotosAlbum(out, nil, nil, nil)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(accent)
                     } else {
                         Image(systemName: "photo")
                             .font(.system(size: 60))
@@ -172,5 +173,26 @@ struct GalleryView: View {
                 }
             }
         }
+    }
+
+    private func styleCard(title: String, systemImage: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 20))
+                    .foregroundColor(selected ? accent : .gray)
+                    .frame(width: 44, height: 44)
+                    .background(Color.primary.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                Text(title)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(selected ? accent : .secondary)
+            }
+            .frame(width: 72, height: 96)
+            .background(Color.primary.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(selected ? accent : .clear, lineWidth: 2))
+        }
+        .buttonStyle(.plain)
     }
 }

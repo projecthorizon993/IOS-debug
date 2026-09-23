@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CameraApp — UI Preview (OPPO style)</title>
 <style>
-  :root { --accent: #FF9F0A; }
+  :root { --accent: #FF5C00; }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
     background: #101014; color: #fff; font-family: -apple-system, "SF Pro Text", Inter, Segoe UI, sans-serif;
@@ -104,12 +104,12 @@
   .shutterrow { display: flex; align-items: center; padding: 0 36px; }
   .thumb { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg,#7aa0c8,#22331f); border: 2px solid var(--accent); }
   .thumb .n { font-size: 10px; background: rgba(0,0,0,.6); border-radius: 6px; padding: 1px 5px; position: relative; top: 26px; left: 24px; }
-  .shutter { margin: 0 auto; width: 72px; height: 72px; border-radius: 50%; border: 0; cursor: pointer; position: relative; background: #fff; transition: transform .12s ease; }
+  .shutter { margin: 0 auto; width: 72px; height: 72px; border-radius: 50%; border: 0; cursor: pointer; position: relative; background: var(--accent); transition: transform .12s ease; }
   .shutter:active { transform: scale(.88); }
+  .shutter::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 5px solid rgba(255,255,255,.4); }
+  .shutter::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); }
   .shutter.video.rec { animation: shutterBreathe 1.4s ease-in-out infinite; }
   @keyframes shutterBreathe { 50% { transform: scale(.94); } }
-  .shutter::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 5px solid rgba(255,255,255,.4); }
-  .shutter::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 2px solid var(--accent); }
   .shutter.video { background: #e03131; }
   .shutter.video::after { border-color: #fff; }
   .shutter.video.rec::after { border: 0; }
@@ -218,7 +218,7 @@
         <h2>Theme</h2>
         <div class="card"><h3>Custom color</h3>
           <div class="swatches" id="swatches"></div>
-          <div class="prow"><label>Picker</label><input type="color" id="customColor" value="#ff9f0a"></div>
+          <div class="prow"><label>Picker</label><input type="color" id="customColor" value="#ff5c00"></div>
           <div style="color:#888;font-size:12px">Applies to shutter ring, pills, sliders, REC + trim.</div>
         </div>
       </div>
@@ -238,7 +238,7 @@ const root = document.documentElement;
 let mode = "photo", zoom = 1, shots = 0, rec = false, recT = 0, recTimer = null, front = false;
 
 // theme
-const presets = ["#FF9F0A","#0A84FF","#30D158","#FF375F","#BF5AF2","#FFD60A","#FFFFFF"];
+const presets = ["#FF5C00","#FF9F0A","#FFD60A","#0A84FF","#30D158","#BF5AF2","#FFFFFF"];
 const sw = $("swatches");
 presets.forEach((hex, i) => {
   const b = document.createElement("button");

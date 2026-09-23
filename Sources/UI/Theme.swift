@@ -26,9 +26,11 @@ extension Color {
     }
 }
 
+// MARK: - Hasselblad-inspired theme (black / white / signature orange)
+
 enum AppTheme {
-    static let defaultHex = "#FF9F0A"
-    static let presets = ["#FF9F0A", "#0A84FF", "#30D158", "#FF375F", "#BF5AF2", "#FFD60A", "#FFFFFF"]
+    static let defaultHex = "#FF5C00" // Hasselblad orange
+    static let presets = ["#FF5C00", "#FF9F0A", "#FFD60A", "#0A84FF", "#30D158", "#BF5AF2", "#FFFFFF"]
 }
 
 struct ThemeSettingsView: View {

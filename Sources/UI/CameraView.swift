@@ -164,8 +164,8 @@ struct CameraScreen: View {
                         Text("QR: \(qr) (tap to copy)").font(.footnote).padding(6).background(.black.opacity(0.6)).foregroundColor(.white).cornerRadius(8)
                     }
                 }
-                // Zoom pills floating above modes (OPPO)
-                HStack(spacing: 10) {
+                // Zoom rings (Hasselblad): dark circles, accent ring = active lens
+                HStack(spacing: 12) {
                     ForEach([1.0, 2.0, 4.0], id: \.self) { v in
                         let selected = abs(zoomSlider - v) < 0.15
                         Button(v == 1.0 ? "1×" : v == 2.0 ? "2×" : "4×") {
@@ -174,10 +174,11 @@ struct CameraScreen: View {
                             camera.setLensPreset(v)
                         }
                         .font(.system(size: 13, weight: selected ? .bold : .regular))
-                        .padding(.horizontal, 11).padding(.vertical, 7)
-                        .background(selected ? accent : Color.black.opacity(0.55))
-                        .foregroundColor(selected ? .black : .white)
-                        .clipShape(Capsule())
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Color.black.opacity(0.55))
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(selected ? accent : .white.opacity(0.6), lineWidth: selected ? 2.5 : 1))
                     }
                 }
                 Slider(value: $zoomSlider, in: 1...8, step: 0.1)
@@ -266,10 +267,10 @@ struct CameraScreen: View {
                             camera.capturePhoto()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { shutterFlash = false }
                         }) {
+                            // Hasselblad: orange disc, white halo ring
                             ZStack {
-                                Circle().fill(.white).frame(width: 72, height: 72)
-                                Circle().stroke(.white.opacity(0.4), lineWidth: 5).frame(width: 82, height: 82)
-                                Circle().stroke(accent, lineWidth: 2).frame(width: 62, height: 62)
+                                Circle().fill(accent).frame(width: 72, height: 72)
+                                Circle().stroke(.white, lineWidth: 4).frame(width: 84, height: 84)
                             }
                         }
                     }
