@@ -158,6 +158,8 @@
         <div class="topbar">
           <button class="iconbtn" id="torchBtn" title="Torch">⚡</button>
           <div class="pill" id="statusPill">1×</div>
+          <button class="iconbtn accent" id="imgBtn" title="Load your photo (double-click to reset scene)">🖼</button>
+          <input type="file" id="imgFile" accept="image/*" style="display:none">
           <button class="iconbtn accent" id="themeBtn" title="Theme">🎨</button>
           <button class="iconbtn" id="logBtn" title="Logs">📄</button>
         </div>
@@ -256,6 +258,35 @@ function showPage(p) {
 }
 document.querySelectorAll(".tabbar button").forEach(b => b.onclick = () => showPage(b.dataset.p));
 $("logBtn").onclick = () => alert("Logs sheet (in-app log export lives here in the real app).");
+
+// load your own photo as the viewfinder scene + gallery sample
+$("imgBtn").onclick = () => $("imgFile").click();
+$("imgBtn").ondblclick = () => {
+  $("scene").style.backgroundImage = ""; $("samplePhoto").style.backgroundImage = "";
+  updateSceneFilter(); toast("Scene reset");
+};
+$("imgFile").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f);
+  ["scene", "samplePhoto"].forEach(id => {
+    const el = $(id);
+    el.style.backgroundImage = `url("${url}")`;
+    el.style.backgroundSize = "cover"; el.style.backgroundPosition = "center";
+  });
+  updateSceneFilter();
+  toast("Photo loaded — PRO sliders grade it live");
+};
+// live grade: mirror PhotoStyle (approx via CSS filters; exact look is Core Image on device)
+function updateSceneFilter() {
+  const s = parseFloat($("sat").value), c = parseFloat($("con").value),
+        b = parseFloat($("bri").value), k = parseFloat($("wb").value);
+  let f = `saturate(${s}) contrast(${c}) brightness(${(1 + b).toFixed(2)})`;
+  if (k < 5200) f += ` sepia(${((5200 - k) / 2200 * 0.45).toFixed(2)})`;
+  else f += ` hue-rotate(${((k - 5200) / 2800 * -12).toFixed(1)}deg)`;
+  $("scene").style.filter = f;
+  $("samplePhoto").style.filter = f;
+}
+["sat", "con", "bri", "wb"].forEach(id => $(id).addEventListener("input", updateSceneFilter));
 
 // focus tap
 $("scene").onclick = e => {
