@@ -24,7 +24,14 @@ jobs:
       - name: Generate Xcode project
         run: |
           xcodegen generate --spec project.yml
+          xcodegen --version
           xcodebuild -list -project CameraApp.xcodeproj
+
+      - name: Diagnose plist wiring
+        run: |
+          grep -n "INFOPLIST_FILE\|GENERATE_INFOPLIST" CameraApp.xcodeproj/project.pbxproj | head -20
+          echo "--- Sources/Info.plist keys ---"
+          grep -o "<key>[A-Za-z]*</key>" Sources/Info.plist | sort -u
 
       - name: Archive (unsigned for Sideloadly)
         run: |
@@ -35,7 +42,7 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath build/CameraApp.xcarchive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" AD_HOC_CODE_SIGNING_ALLOWED=YES
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" AD_HOC_CODE_SIGNING_ALLOWED=YES GENERATE_INFOPLIST_FILE=NO INFOPLIST_FILE="$(pwd)/Sources/Info.plist"
 
       - name: Verify privacy keys in built app
         run: |
