@@ -168,7 +168,7 @@ struct CameraScreen: View {
                 .pickerStyle(.segmented)
                 .tint(accent)
                 .padding(.horizontal)
-                .background(.black.opacity(0.35).cornerRadius(10))
+                .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
                 .padding(.horizontal, 60)
 
                 // Lens presets: smooth ramp across triple camera (P2), selected = accent

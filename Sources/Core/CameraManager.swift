@@ -484,7 +484,7 @@ final class CameraManager: NSObject, ObservableObject {
                 try device.lockForConfiguration()
                 let k = max(3000, min(kelvin, 8000))
                 let t = max(-100, min(tint, 100))
-                let tt = AVCaptureWhiteBalanceTemperatureAndTintValues(temperature: Float(k), tint: Float(t))
+                let tt = AVCaptureDevice.WhiteBalanceTemperatureAndTintValues(temperature: Float(k), tint: Float(t))
                 var gains = device.deviceWhiteBalanceGains(for: tt)
                 gains.redGain = max(1.0, min(gains.redGain, device.maxWhiteBalanceGain))
                 gains.greenGain = max(1.0, min(gains.greenGain, device.maxWhiteBalanceGain))
