@@ -3,18 +3,24 @@ import AVKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @AppStorage("accentHex") private var accentHex = AppTheme.defaultHex
     var body: some View {
         TabView {
             CameraScreen()
                 .tabItem { Label("Camera", systemImage: "camera") }
             GalleryView()
                 .tabItem { Label("Gallery", systemImage: "photo.on.rectangle") }
+            NavigationView { ThemeSettingsView() }
+                .tabItem { Label("Theme", systemImage: "paintpalette") }
         }
+        .tint(Color(hex: accentHex))
     }
 }
 
 struct GalleryView: View {
     @StateObject private var camera = CameraManager.shared
+    @AppStorage("accentHex") private var accentHex = AppTheme.defaultHex
+    private var accent: Color { Color(hex: accentHex) }
     @State private var showLUTImporter = false
     @State private var lut: LUTEngine.CubeLUT?
     @State private var lutName = ""
@@ -36,6 +42,11 @@ struct GalleryView: View {
                             .scaledToFit()
                             .cornerRadius(12)
                             .padding(.horizontal)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(lut != nil ? accent : Color.clear, lineWidth: 2)
+                                    .padding(.horizontal)
+                            )
                         HStack {
                             Button("Import .cube LUT") { showLUTImporter = true }
                             if lut != nil {
@@ -50,6 +61,7 @@ struct GalleryView: View {
                             }
                         }
                         .font(.footnote)
+                        .tint(accent)
                         if !lutName.isEmpty {
                             Text("LUT: \(lutName)").font(.caption).foregroundColor(.secondary)
                         }
@@ -76,10 +88,12 @@ struct GalleryView: View {
                             HStack {
                                 Text("Start \(trimStart, specifier: "%.1f")s")
                                 Slider(value: $trimStart, in: 0...max(1, trimEnd - 0.5), step: 0.1)
+                                    .tint(accent)
                             }
                             HStack {
                                 Text("End \(trimEnd, specifier: "%.1f")s")
                                 Slider(value: $trimEnd, in: max(0.5, trimStart + 0.5)...30, step: 0.1)
+                                    .tint(accent)
                             }
                             Button(trimBusy ? "Trimming…" : "Trim + Export mp4") {
                                 trimBusy = true
@@ -93,6 +107,8 @@ struct GalleryView: View {
                                     }
                                 }
                             }
+                            .buttonStyle(.borderedProminent)
+                            .tint(accent)
                             .disabled(trimBusy)
                             if !trimMessage.isEmpty {
                                 Text(trimMessage).font(.caption).foregroundColor(.secondary)
