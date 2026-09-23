@@ -41,6 +41,11 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var wbLocked = false
     @Published var iso: Float = 100
     @Published var shutter: Double = 1.0 / 120.0
+    @Published var exposureBias: Float = 0
+    @Published var wbTemp: Double = 5200
+    @Published var wbTint: Double = 0
+    @Published var style = PhotoStyle()
+    @Published var styleOnCapture = true
     @Published var logLines: [String] = []
 
     private override init() {
@@ -452,6 +457,64 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Photographic bias: EV, ISO/shutter bias, warm/cool WB
+
+    /// Exposure bias (EV), usually -3...+3. Applies in auto-exposure modes.
+    func setExposureBias(_ ev: Float) {
+        sessionQueue.async { [weak self] in
+            guard let device = self?.currentDevice else { return }
+            do {
+                try device.lockForConfiguration()
+                let clamped = max(device.minExposureTargetBias, min(ev, device.maxExposureTargetBias))
+                device.setExposureTargetBias(clamped, completionHandler: nil)
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { self?.exposureBias = clamped }
+            } catch {
+                self?.log("EV bias failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Warm (3000K amber) ... neutral 5200K ... cool (8000K blue) + green/magenta tint.
+    func setWhiteBalance(kelvin: Double, tint: Double = 0) {
+        sessionQueue.async { [weak self] in
+            guard let device = self?.currentDevice,
+                  device.isWhiteBalanceModeSupported(.locked) else { return }
+            do {
+                try device.lockForConfiguration()
+                let k = max(3000, min(kelvin, 8000))
+                let t = max(-100, min(tint, 100))
+                let tt = AVCaptureWhiteBalanceTemperatureAndTintValues(temperature: Float(k), tint: Float(t))
+                var gains = device.deviceWhiteBalanceGains(for: tt)
+                gains.redGain = max(1.0, min(gains.redGain, device.maxWhiteBalanceGain))
+                gains.greenGain = max(1.0, min(gains.greenGain, device.maxWhiteBalanceGain))
+                gains.blueGain = max(1.0, min(gains.blueGain, device.maxWhiteBalanceGain))
+                device.setWhiteBalanceModeLocked(with: gains, completionHandler: nil)
+                device.unlockForConfiguration()
+                DispatchQueue.main.async {
+                    self?.wbTemp = k
+                    self?.wbTint = t
+                    self?.wbLocked = true
+                    self?.style.temperature = k
+                    self?.style.tint = t
+                }
+            } catch {
+                self?.log("WB failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    func autoWhiteBalance() {
+        sessionQueue.async { [weak self] in
+            guard let device = self?.currentDevice,
+                  device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) else { return }
+            try? device.lockForConfiguration()
+            device.whiteBalanceMode = .continuousAutoWhiteBalance
+            device.unlockForConfiguration()
+            DispatchQueue.main.async { self?.wbLocked = false }
+        }
+    }
+
     func autoFocusExpose() {
         sessionQueue.async { [weak self] in
             guard let device = self?.currentDevice else { return }
@@ -477,8 +540,14 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         }
         guard let data = photo.fileDataRepresentation(),
               let image = UIImage(data: data) else { return }
-        DispatchQueue.main.async { self.lastPhoto = image }
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        let style = self.style
+        let applyStyle = self.styleOnCapture && !style.isNeutral
+        let finalImage: UIImage = {
+            if applyStyle, let styled = style.apply(to: image) { return styled }
+            return image
+        }()
+        DispatchQueue.main.async { self.lastPhoto = finalImage }
+        UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
     }
 }
 

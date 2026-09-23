@@ -35,9 +35,10 @@ struct GalleryView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Last photo + LUT preview (P4/P8)
+                    // Last photo + LUT preview (P4/P8) + photo style
                     if let img = camera.lastPhoto {
-                        Image(uiImage: filteredImage ?? img)
+                        let styled = camera.style.isNeutral ? img : (camera.style.apply(to: img) ?? img)
+                        Image(uiImage: filteredImage ?? styled)
                             .resizable()
                             .scaledToFit()
                             .cornerRadius(12)
@@ -64,6 +65,20 @@ struct GalleryView: View {
                         .tint(accent)
                         if !lutName.isEmpty {
                             Text("LUT: \(lutName)").font(.caption).foregroundColor(.secondary)
+                        }
+                        if !camera.style.isNeutral {
+                            Text("Style: \(Int(camera.style.temperature))K tint \(Int(camera.style.tint)) sat \(String(format: "%.2f", camera.style.saturation)) con \(String(format: "%.2f", camera.style.contrast))")
+                                .font(.caption).foregroundColor(.secondary)
+                            HStack {
+                                Button("Save styled") {
+                                    if let out = camera.style.apply(to: img) {
+                                        UIImageWriteToSavedPhotosAlbum(out, nil, nil, nil)
+                                    }
+                                }
+                                Button("Reset style") { camera.style = .neutral }
+                            }
+                            .font(.footnote)
+                            .tint(accent)
                         }
                     } else {
                         Image(systemName: "photo")

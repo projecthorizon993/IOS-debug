@@ -54,6 +54,13 @@ struct CameraScreen: View {
     @State private var mode: CaptureMode = .photo
     @State private var iso: Float = 100
     @State private var shutterMs: Double = 8.3 // ~1/120
+    @State private var ev: Float = 0
+    @State private var wbK: Double = 5200
+    @State private var wbTint: Double = 0
+    @State private var sat: Double = 1.0
+    @State private var con: Double = 1.0
+    @State private var bri: Double = 0.0
+    @State private var styleOn = true
     @State private var recStart: Date?
     @State private var shutterFlash = false
 
@@ -259,6 +266,13 @@ struct CameraScreen: View {
         .onAppear {
             iso = camera.iso
             shutterMs = camera.shutter * 1000
+            ev = camera.exposureBias
+            wbK = camera.wbTemp
+            wbTint = camera.wbTint
+            sat = camera.style.saturation
+            con = camera.style.contrast
+            bri = camera.style.brightness
+            styleOn = camera.styleOnCapture
         }
     }
 
@@ -268,30 +282,148 @@ struct CameraScreen: View {
         return String(format: "REC %02d:%02d", e / 60, e % 60)
     }
 
-    // P7 manual panel: ISO 34-2172, shutter 1/80000-1s, WB/focus lock
+    // Pro photographic panel: EV/ISO/shutter bias, warm-cool WB, color style
     private var manualPanel: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Text("ISO \(Int(iso))").font(.caption).foregroundColor(.white).frame(width: 70, alignment: .leading)
-                Slider(value: Binding(get: { Double(iso) }, set: { iso = Float($0) }), in: 34...2172, step: 1)
-                    .tint(accent)
-                    .onChange(of: iso) { _, v in camera.setManualExposure(iso: v, shutterSeconds: Double(shutterMs) / 1000) }
+        ScrollView {
+            VStack(spacing: 10) {
+                // Exposure bias
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("Exposure").font(.caption.bold()).foregroundColor(.white)
+                        Spacer()
+                        Text(String(format: "%+.1f EV", ev)).font(.caption).foregroundColor(accent)
+                    }
+                    HStack {
+                        Text("EV \(String(format: "%+.1f", ev))").font(.caption).foregroundColor(.white).frame(width: 70, alignment: .leading)
+                        Slider(value: Binding(get: { Double(ev) }, set: { ev = Float($0) }), in: -3...3, step: 0.1)
+                            .tint(accent)
+                            .onChange(of: ev) { _, v in camera.setExposureBias(v) }
+                    }
+                    HStack {
+                        Text("ISO \(Int(iso))").font(.caption).foregroundColor(.white).frame(width: 70, alignment: .leading)
+                        Slider(value: Binding(get: { Double(iso) }, set: { iso = Float($0) }), in: 34...2172, step: 1)
+                            .tint(accent)
+                            .onChange(of: iso) { _, v in camera.setManualExposure(iso: v, shutterSeconds: Double(shutterMs) / 1000) }
+                    }
+                    HStack {
+                        Text(shutterLabel).font(.caption).foregroundColor(.white).frame(width: 70, alignment: .leading)
+                        Slider(value: $shutterMs, in: 0.0125...1000, step: 0.5)
+                            .tint(accent)
+                            .onChange(of: shutterMs) { _, v in camera.setManualExposure(iso: iso, shutterSeconds: v / 1000) }
+                    }
+                    HStack(spacing: 8) {
+                        ForEach([-1.0, 0.0, 1.0], id: \.self) { b in
+                            Button(b == 0 ? "EV 0" : String(format: "%+.0f", b)) { ev = Float(b); camera.setExposureBias(Float(b)) }
+                                .font(.caption).padding(6)
+                                .background(ev == Float(b) ? accent : .white.opacity(0.12))
+                                .foregroundColor(ev == Float(b) ? .black : .white)
+                                .clipShape(Capsule())
+                        }
+                        Spacer()
+                        Button("Auto EV") { ev = 0; camera.setExposureBias(0); camera.autoFocusExpose() }
+                            .font(.caption).foregroundColor(accent)
+                    }
+                }
+                .padding(8).background(.black.opacity(0.5)).cornerRadius(10)
+
+                // White balance: warm <-> cool
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("White balance").font(.caption.bold()).foregroundColor(.white)
+                        Spacer()
+                        Text("\(Int(wbK))K").font(.caption).foregroundColor(accent)
+                    }
+                    HStack {
+                        Text("❄︎ Cool").font(.caption).foregroundColor(.blue)
+                        Slider(value: $wbK, in: 3000...8000, step: 50)
+                            .tint(accent)
+                            .onChange(of: wbK) { _, v in camera.setWhiteBalance(kelvin: v, tint: wbTint) }
+                        Text("Warm 🔥").font(.caption).foregroundColor(.orange)
+                    }
+                    HStack {
+                        Text("Tint \(Int(wbTint))").font(.caption).foregroundColor(.white).frame(width: 70, alignment: .leading)
+                        Slider(value: $wbTint, in: -100...100, step: 1)
+                            .tint(accent)
+                            .onChange(of: wbTint) { _, v in camera.setWhiteBalance(kelvin: wbK, tint: v) }
+                    }
+                    HStack(spacing: 8) {
+                        ForEach([("Auto", 0.0), ("Tungsten", 3200.0), ("Day", 5200.0), ("Cloudy", 6000.0), ("Shade", 7000.0)], id: \.0) { name, k in
+                            Button(name) {
+                                if k == 0 { camera.autoWhiteBalance() }
+                                else { wbK = k; camera.setWhiteBalance(kelvin: k, tint: wbTint) }
+                            }
+                            .font(.caption).padding(6)
+                            .background(k != 0 && abs(wbK - k) < 1 ? accent : .white.opacity(0.12))
+                            .foregroundColor(k != 0 && abs(wbK - k) < 1 ? .black : .white)
+                            .clipShape(Capsule())
+                        }
+                    }
+                }
+                .padding(8).background(.black.opacity(0.5)).cornerRadius(10)
+
+                // Color style (applied on capture + gallery preview)
+                VStack(spacing: 6) {
+                    HStack {
+                        Text("Color style").font(.caption.bold()).foregroundColor(.white)
+                        Spacer()
+                        Toggle("On capture", isOn: $styleOn)
+                            .font(.caption).tint(accent)
+                            .onChange(of: styleOn) { _, v in camera.styleOnCapture = v }
+                    }
+                    photoStyleRow("Saturation", value: $sat, range: 0...2, def: 1.0)
+                    photoStyleRow("Contrast", value: $con, range: 0.5...1.5, def: 1.0)
+                    photoStyleRow("Brightness", value: $bri, range: -0.5...0.5, def: 0.0)
+                    HStack {
+                        Button("Vivid") { sat = 1.4; con = 1.1; pushStyle() }
+                        Button("Neutral") { sat = 1.0; con = 1.0; bri = 0.0; pushStyle() }
+                        Button("Mono") { sat = 0.0; pushStyle() }
+                        Spacer()
+                        Button("Reset all") { resetStyle() }
+                    }
+                    .font(.caption).foregroundColor(accent)
+                }
+                .padding(8).background(.black.opacity(0.5)).cornerRadius(10)
+
+                HStack(spacing: 12) {
+                    Button(camera.focusLocked ? "Focus: Locked" : "Lock Focus") { camera.lockFocus() }
+                    Button(camera.wbLocked ? "WB: Locked" : "Lock WB") { camera.lockWhiteBalance() }
+                    Button("Auto") { camera.autoFocusExpose(); camera.autoWhiteBalance() }
+                }
+                .font(.caption).foregroundColor(accent)
+                .padding(6).background(.black.opacity(0.5)).cornerRadius(8)
             }
-            HStack {
-                Text(shutterLabel).font(.caption).foregroundColor(.white).frame(width: 70, alignment: .leading)
-                Slider(value: $shutterMs, in: 0.0125...1000, step: 0.5)
-                    .tint(accent)
-                    .onChange(of: shutterMs) { _, v in camera.setManualExposure(iso: iso, shutterSeconds: v / 1000) }
-            }
-            HStack(spacing: 12) {
-                Button(camera.focusLocked ? "Focus: Locked" : "Lock Focus") { camera.lockFocus() }
-                Button(camera.wbLocked ? "WB: Locked" : "Lock WB") { camera.lockWhiteBalance() }
-                Button("Auto") { camera.autoFocusExpose() }
-            }
-            .font(.caption).foregroundColor(accent)
-            .padding(6).background(.black.opacity(0.5)).cornerRadius(8)
         }
+        .frame(maxHeight: 320)
         .padding(.horizontal)
+    }
+
+    private func photoStyleRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, def: Double) -> some View {
+        HStack {
+            Text("\(title) \(String(format: "%.2f", value.wrappedValue))").font(.caption).foregroundColor(.white).frame(width: 130, alignment: .leading)
+            Slider(value: value, in: range)
+                .tint(accent)
+                .onChange(of: value.wrappedValue) { _, _ in pushStyle() }
+            Button("⟲") { value.wrappedValue = def; pushStyle() }.font(.caption).foregroundColor(accent)
+        }
+    }
+
+    private func pushStyle() {
+        var s = camera.style
+        s.saturation = sat
+        s.contrast = con
+        s.brightness = bri
+        s.temperature = wbK
+        s.tint = wbTint
+        camera.style = s
+    }
+
+    private func resetStyle() {
+        ev = 0; camera.setExposureBias(0)
+        wbK = 5200; wbTint = 0; camera.autoWhiteBalance()
+        sat = 1.0; con = 1.0; bri = 0.0
+        camera.style = .neutral
+        camera.styleOnCapture = true
+        styleOn = true
     }
 
     private var shutterLabel: String {
