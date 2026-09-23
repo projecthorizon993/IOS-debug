@@ -37,6 +37,14 @@ jobs:
             -archivePath build/CameraApp.xcarchive \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" AD_HOC_CODE_SIGNING_ALLOWED=YES
 
+      - name: Verify privacy keys in built app
+        run: |
+          PLIST="build/CameraApp.xcarchive/Products/Applications/CameraApp.app/Info.plist"
+          for KEY in NSCameraUsageDescription NSMicrophoneUsageDescription NSPhotoLibraryAddUsageDescription NSPhotoLibraryUsageDescription; do
+            VAL=$(plutil -extract "$KEY" raw -o - "$PLIST" 2>&1) || { echo "::error::Missing $KEY in built Info.plist (TCC will kill the app on launch)"; plutil -p "$PLIST"; exit 1; }
+            echo "$KEY = $VAL"
+          done
+
       - name: Package unsigned IPA
         run: |
           rm -rf Payload CameraApp-unsigned.ipa

@@ -10,11 +10,14 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Sources
+        excludes:
+          - Info.plist
     info:
       path: Sources/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sideload.cameraapp
+        INFOPLIST_FILE: Sources/Info.plist
         SWIFT_VERSION: 5.9
         IPHONEOS_DEPLOYMENT_TARGET: 17.0
         TARGETED_DEVICE_FAMILY: 1
