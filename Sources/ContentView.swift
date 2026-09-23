@@ -6,7 +6,7 @@ struct ContentView: View {
     @AppStorage("accentHex") private var accentHex = AppTheme.defaultHex
     var body: some View {
         TabView {
-            CameraScreen()
+            CameraHostView()
                 .tabItem { Label("Camera", systemImage: "camera") }
             GalleryView()
                 .tabItem { Label("Gallery", systemImage: "photo.on.rectangle") }
