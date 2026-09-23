@@ -36,8 +36,9 @@ final class PreviewUIView: UIView {
 }
 
 enum CaptureMode: String, CaseIterable {
-    case photo = "Photo"
-    case video = "Video"
+    case photo = "PHOTO"
+    case video = "VIDEO"
+    case pro = "PRO"
 }
 
 struct CameraScreen: View {
@@ -48,7 +49,6 @@ struct CameraScreen: View {
     @State private var zoomSlider: Double = 1.0
     @State private var pinchBase: Double = 1.0
     @State private var focusPoint: CGPoint?
-    @State private var showManual = false
     @State private var showLog = false
     @State private var showTheme = false
     @State private var mode: CaptureMode = .photo
@@ -113,28 +113,33 @@ struct CameraScreen: View {
             }
 
             VStack {
-                // Top bar: lens label, torch, theme, log
-                HStack {
-                    Text(camera.lensLabel)
-                        .font(.headline).foregroundColor(.black)
-                        .padding(8).background(accent).clipShape(Capsule())
+                // Slim top bar (OPPO): flash left, status center, tools right
+                HStack(spacing: 4) {
+                    Button(action: { camera.setTorch(!camera.torchOn) }) {
+                        Image(systemName: camera.torchOn ? "bolt.fill" : "bolt.slash.fill")
+                            .font(.system(size: 15))
+                            .padding(10).background(.black.opacity(0.45)).foregroundColor(camera.torchOn ? accent : .white).clipShape(Circle())
+                    }
                     Spacer()
                     if camera.isRecording {
                         Text(recText)
                             .font(.caption.monospacedDigit()).foregroundColor(.white)
-                            .padding(8).background(.red).clipShape(Capsule())
+                            .padding(.horizontal, 10).padding(.vertical, 6).background(.red).clipShape(Capsule())
+                    } else {
+                        Text(mode == .pro ? "PRO · \(camera.lensLabel)" : camera.lensLabel)
+                            .font(.caption).foregroundColor(.white.opacity(0.9))
+                            .padding(.horizontal, 10).padding(.vertical, 6).background(.black.opacity(0.45)).clipShape(Capsule())
                     }
-                    Button(action: { camera.setTorch(!camera.torchOn) }) {
-                        Image(systemName: camera.torchOn ? "bolt.fill" : "bolt.slash.fill")
-                            .padding(10).background(.black.opacity(0.55)).foregroundColor(camera.torchOn ? accent : .white).clipShape(Circle())
-                    }
+                    Spacer()
                     Button(action: { showTheme = true }) {
                         Image(systemName: "paintpalette.fill")
-                            .padding(10).background(.black.opacity(0.55)).foregroundColor(accent).clipShape(Circle())
+                            .font(.system(size: 15))
+                            .padding(10).background(.black.opacity(0.45)).foregroundColor(accent).clipShape(Circle())
                     }
                     Button(action: { showLog = true }) {
                         Image(systemName: "doc.text")
-                            .padding(10).background(.black.opacity(0.55)).foregroundColor(.white).clipShape(Circle())
+                            .font(.system(size: 15))
+                            .padding(10).background(.black.opacity(0.45)).foregroundColor(.white).clipShape(Circle())
                     }
                 }
                 .padding(.horizontal)
@@ -159,53 +164,34 @@ struct CameraScreen: View {
                         Text("QR: \(qr) (tap to copy)").font(.footnote).padding(6).background(.black.opacity(0.6)).foregroundColor(.white).cornerRadius(8)
                     }
                 }
-                // Mode selector (capture vs video)
-                Picker("Mode", selection: $mode) {
-                    ForEach(CaptureMode.allCases, id: \.self) { m in
-                        Text(m.rawValue).tag(m)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .tint(accent)
-                .padding(.horizontal)
-                .background(Color.black.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
-                .padding(.horizontal, 60)
-
-                // Lens presets: smooth ramp across triple camera (P2), selected = accent
-                HStack(spacing: 16) {
+                // Zoom pills floating above modes (OPPO)
+                HStack(spacing: 10) {
                     ForEach([1.0, 2.0, 4.0], id: \.self) { v in
                         let selected = abs(zoomSlider - v) < 0.15
-                        Button(v == 1.0 ? "1x" : v == 2.0 ? "2x" : "4x") {
+                        Button(v == 1.0 ? "1×" : v == 2.0 ? "2×" : "4×") {
                             zoomSlider = v
                             pinchBase = v
                             camera.setLensPreset(v)
                         }
-                        .padding(10)
+                        .font(.system(size: 13, weight: selected ? .bold : .regular))
+                        .padding(.horizontal, 11).padding(.vertical, 7)
                         .background(selected ? accent : Color.black.opacity(0.55))
                         .foregroundColor(selected ? .black : .white)
-                        .clipShape(Circle())
-                    }
-                    Button(action: { camera.switchFrontBack() }) {
-                        Image(systemName: "arrow.triangle.2.circlepath.camera")
-                            .padding(10).background(.black.opacity(0.55)).foregroundColor(.white).clipShape(Circle())
-                    }
-                    Button(action: { showManual.toggle() }) {
-                        Image(systemName: showManual ? "slider.horizontal.3" : "dial.low")
-                            .padding(10).background(showManual ? accent : .black.opacity(0.55)).foregroundColor(showManual ? .black : .white).clipShape(Circle())
+                        .clipShape(Capsule())
                     }
                 }
                 Slider(value: $zoomSlider, in: 1...8, step: 0.1)
                     .tint(accent)
-                    .padding(.horizontal)
+                    .padding(.horizontal, 28)
                     .onChange(of: zoomSlider) { old, new in
                         ZoomController.tickIfCrossed(old: old, new: new)
                         camera.setZoomSmooth(new, rate: 8.0)
                         pinchBase = new
                     }
-                if showManual {
+                if mode == .pro {
                     manualPanel
                 }
-                // Quality picker (P5) + mute — video mode emphasized
+                // Quality row — video mode only
                 if mode == .video || camera.isRecording {
                     HStack {
                         Picker("Quality", selection: $camera.videoQuality) {
@@ -224,41 +210,81 @@ struct CameraScreen: View {
                     .padding(.horizontal, 8)
                 }
 
-                // Capture + video shutter row
-                HStack(spacing: 40) {
-                    // Gallery thumbnail (P4)
+                // Mode carousel (OPPO): swipeable text tabs, accent = active
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 30) {
+                        ForEach(CaptureMode.allCases, id: \.self) { m in
+                            Button(action: { mode = m }) {
+                                VStack(spacing: 3) {
+                                    Text(m.rawValue)
+                                        .font(.system(size: 14, weight: mode == m ? .bold : .regular))
+                                        .foregroundColor(mode == m ? accent : .white.opacity(0.6))
+                                    Circle()
+                                        .fill(mode == m ? accent : .clear)
+                                        .frame(width: 5, height: 5)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+                .padding(.vertical, 2)
+                .disabled(camera.isRecording)
+
+                // OPPO shutter row: thumbnail | big shutter | flip
+                HStack {
                     if let img = camera.lastPhoto {
                         Image(uiImage: img).resizable().scaledToFill()
-                            .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 8))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(accent, lineWidth: mode == .photo ? 2 : 0))
+                            .frame(width: 46, height: 46).clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(accent, lineWidth: mode == .video ? 0 : 2))
                     } else {
-                        Image(systemName: "photo").font(.system(size: 30)).foregroundColor(.white.opacity(0.8))
+                        Image(systemName: "photo").font(.system(size: 28)).foregroundColor(.white.opacity(0.8))
+                            .frame(width: 46, height: 46)
                     }
-                    // Photo capture
-                    Button(action: {
-                        shutterFlash = true
-                        camera.capturePhoto()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { shutterFlash = false }
-                    }) {
-                        Circle().fill(mode == .photo ? .white : .gray).frame(width: 70, height: 70)
-                            .overlay(Circle().stroke(accent, lineWidth: 3))
-                    }
-                    // Video capture
-                    Button(action: {
-                        if camera.isRecording {
-                            camera.stopVideoRecording()
-                            recStart = nil
-                        } else {
-                            mode = .video
-                            camera.startVideoRecording()
-                            recStart = Date()
+                    Spacer()
+                    if mode == .video {
+                        Button(action: {
+                            if camera.isRecording {
+                                camera.stopVideoRecording()
+                                recStart = nil
+                            } else {
+                                camera.startVideoRecording()
+                                recStart = Date()
+                            }
+                        }) {
+                            ZStack {
+                                Circle().fill(.red).frame(width: 72, height: 72)
+                                Circle().stroke(.white, lineWidth: 5).frame(width: 72, height: 72)
+                                if camera.isRecording {
+                                    RoundedRectangle(cornerRadius: 6).fill(.white).frame(width: 26, height: 26)
+                                }
+                            }
                         }
-                    }) {
-                        Image(systemName: camera.isRecording ? "stop.circle.fill" : "video.circle.fill")
-                            .font(.system(size: 44)).foregroundColor(camera.isRecording ? .red : (mode == .video ? accent : .white))
+                    } else {
+                        Button(action: {
+                            shutterFlash = true
+                            camera.capturePhoto()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { shutterFlash = false }
+                        }) {
+                            ZStack {
+                                Circle().fill(.white).frame(width: 72, height: 72)
+                                Circle().stroke(.white.opacity(0.4), lineWidth: 5).frame(width: 82, height: 82)
+                                Circle().stroke(accent, lineWidth: 2).frame(width: 62, height: 62)
+                            }
+                        }
                     }
+                    Spacer()
+                    Button(action: { camera.switchFrontBack() }) {
+                        Image(systemName: "arrow.triangle.2.circlepath.camera")
+                            .font(.system(size: 20))
+                            .padding(11).background(.black.opacity(0.55)).foregroundColor(.white).clipShape(Circle())
+                    }
+                    .frame(width: 46, height: 46)
+                    .disabled(camera.isRecording)
+                    .opacity(camera.isRecording ? 0.4 : 1)
                 }
-                .padding(.bottom, 24)
+                .padding(.horizontal, 36)
+                .padding(.bottom, 26)
             }
         }
         .sheet(isPresented: $showLog) { LogSheet(camera: camera) }
