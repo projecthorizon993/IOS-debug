@@ -133,9 +133,12 @@ struct GalleryView: View {
                     camera.errorMessage = error.localizedDescription
                 }
             }
-            .onChange(of: camera.lastPhoto) { _, img in
-                if let img, let lut { filteredImage = LUTEngine.apply(to: img, lut: lut) }
-                else { filteredImage = nil }
+            .onChange(of: camera.lastPhoto != nil) { _, hasPhoto in
+                if hasPhoto, let img = camera.lastPhoto, let lut {
+                    filteredImage = LUTEngine.apply(to: img, lut: lut)
+                } else if !hasPhoto {
+                    filteredImage = nil
+                }
             }
         }
     }

@@ -18,7 +18,9 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate --spec project.yml
+          xcodebuild -list -project CameraApp.xcodeproj
 
       - name: Archive (unsigned for Sideloadly)
         run: |
@@ -26,8 +28,10 @@ jobs:
             -project CameraApp.xcodeproj \
             -scheme CameraApp \
             -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -archivePath build/CameraApp.xcarchive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="" AD_HOC_CODE_SIGNING_ALLOWED=YES
 
       - name: Package unsigned IPA
         run: |
