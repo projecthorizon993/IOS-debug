@@ -1,0 +1,142 @@
+import SwiftUI
+import AVKit
+import UniformTypeIdentifiers
+
+struct ContentView: View {
+    var body: some View {
+        TabView {
+            CameraScreen()
+                .tabItem { Label("Camera", systemImage: "camera") }
+            GalleryView()
+                .tabItem { Label("Gallery", systemImage: "photo.on.rectangle") }
+        }
+    }
+}
+
+struct GalleryView: View {
+    @StateObject private var camera = CameraManager.shared
+    @State private var showLUTImporter = false
+    @State private var lut: LUTEngine.CubeLUT?
+    @State private var lutName = ""
+    @State private var filteredImage: UIImage?
+    @State private var trimStart = 0.0
+    @State private var trimEnd = 5.0
+    @State private var trimBusy = false
+    @State private var trimResult: URL?
+    @State private var trimMessage = ""
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 16) {
+                    // Last photo + LUT preview (P4/P8)
+                    if let img = camera.lastPhoto {
+                        Image(uiImage: filteredImage ?? img)
+                            .resizable()
+                            .scaledToFit()
+                            .cornerRadius(12)
+                            .padding(.horizontal)
+                        HStack {
+                            Button("Import .cube LUT") { showLUTImporter = true }
+                            if lut != nil {
+                                Button("Clear LUT") { lut = nil; filteredImage = nil; lutName = "" }
+                            }
+                            if lut != nil {
+                                Button("Save filtered") {
+                                    if let out = filteredImage {
+                                        UIImageWriteToSavedPhotosAlbum(out, nil, nil, nil)
+                                    }
+                                }
+                            }
+                        }
+                        .font(.footnote)
+                        if !lutName.isEmpty {
+                            Text("LUT: \(lutName)").font(.caption).foregroundColor(.secondary)
+                        }
+                    } else {
+                        Image(systemName: "photo")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray)
+                        Text("No photo yet. Capture from Camera tab.")
+                            .foregroundColor(.secondary)
+                    }
+                    if let qr = camera.qrCode {
+                        Button(action: { UIPasteboard.general.string = qr }) {
+                            Text("QR: \(qr) (tap to copy)")
+                                .font(.footnote).padding(8)
+                                .background(Color.black.opacity(0.07)).cornerRadius(8)
+                        }
+                    }
+                    // Video + trim (P6)
+                    if let url = camera.lastVideoURL {
+                        Text("Video: \(url.lastPathComponent)").font(.footnote).foregroundColor(.secondary)
+                        VideoPlayer(player: AVPlayer(url: url))
+                            .frame(height: 220).cornerRadius(12).padding(.horizontal)
+                        VStack {
+                            HStack {
+                                Text("Start \(trimStart, specifier: "%.1f")s")
+                                Slider(value: $trimStart, in: 0...max(1, trimEnd - 0.5), step: 0.1)
+                            }
+                            HStack {
+                                Text("End \(trimEnd, specifier: "%.1f")s")
+                                Slider(value: $trimEnd, in: max(0.5, trimStart + 0.5)...30, step: 0.1)
+                            }
+                            Button(trimBusy ? "Trimming…" : "Trim + Export mp4") {
+                                trimBusy = true
+                                trimMessage = ""
+                                VideoTrimmer.trim(inputURL: url, startSeconds: trimStart, endSeconds: trimEnd) { out in
+                                    DispatchQueue.main.async {
+                                        trimBusy = false
+                                        trimResult = out
+                                        trimMessage = out == nil ? "Trim failed." : "Trimmed: \(out!.lastPathComponent)"
+                                        if let out { UISaveVideoAtPathToSavedPhotosAlbum(out.path, nil, nil, nil) }
+                                    }
+                                }
+                            }
+                            .disabled(trimBusy)
+                            if !trimMessage.isEmpty {
+                                Text(trimMessage).font(.caption).foregroundColor(.secondary)
+                            }
+                            if let r = trimResult {
+                                VideoPlayer(player: AVPlayer(url: r)).frame(height: 200).cornerRadius(12)
+                            }
+                        }
+                        .font(.footnote).padding(.horizontal)
+                    } else {
+                        Text("No video yet. Record from Camera tab.")
+                            .font(.footnote).foregroundColor(.secondary)
+                    }
+                    Text("Filters + .cube LUT import via LUTEngine (CIColorCube). Trim via VideoTrimmer.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+                .padding(.vertical)
+            }
+            .navigationTitle("Gallery")
+            .fileImporter(isPresented: $showLUTImporter, allowedContentTypes: [.init(filenameExtension: "cube") ?? .data]) {
+                do {
+                    let url = try $0.get()
+                    if url.startAccessingSecurityScopedResource() {
+                        defer { url.stopAccessingSecurityScopedResource() }
+                        if let loaded = LUTEngine.load(url: url) {
+                            lut = loaded
+                            lutName = url.lastPathComponent
+                            if let img = camera.lastPhoto {
+                                let t0 = Date()
+                                filteredImage = LUTEngine.apply(to: img, lut: loaded)
+                                camera.log("LUT \(lutName) size=\(loaded.size) in \(Int(Date().timeIntervalSince(t0) * 1000))ms")
+                            }
+                        }
+                    }
+                } catch {
+                    camera.errorMessage = error.localizedDescription
+                }
+            }
+            .onChange(of: camera.lastPhoto) { _, img in
+                if let img, let lut { filteredImage = LUTEngine.apply(to: img, lut: lut) }
+                else { filteredImage = nil }
+            }
+        }
+    }
+}

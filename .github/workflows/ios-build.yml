@@ -1,0 +1,43 @@
+name: iOS unsigned IPA for sideload
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive (unsigned for Sideloadly)
+        run: |
+          xcodebuild archive \
+            -project CameraApp.xcodeproj \
+            -scheme CameraApp \
+            -configuration Release \
+            -archivePath build/CameraApp.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
+
+      - name: Package unsigned IPA
+        run: |
+          rm -rf Payload CameraApp-unsigned.ipa
+          mkdir -p Payload
+          cp -R "build/CameraApp.xcarchive/Products/Applications/CameraApp.app" Payload/
+          zip -r CameraApp-unsigned.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: CameraApp-unsigned-ipa
+          path: CameraApp-unsigned.ipa

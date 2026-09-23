@@ -1,0 +1,19 @@
+# Xcode
+build/
+*.xcarchive
+*.ipa
+DerivedData/
+*.xcodeproj/
+!*.xcodeproj/project.pbxproj
+CameraApp.xcodeproj/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.hmap
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.swiftpm/
+.build/
