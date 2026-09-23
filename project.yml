@@ -17,13 +17,19 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sideload.cameraapp
-        INFOPLIST_FILE: Sources/Info.plist
         SWIFT_VERSION: 5.9
         IPHONEOS_DEPLOYMENT_TARGET: 17.0
         TARGETED_DEVICE_FAMILY: 1
-        GENERATE_INFOPLIST_FILE: NO
+        GENERATE_INFOPLIST_FILE: YES
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: ""
         DEVELOPMENT_TEAM: ""
         CODE_SIGNING_ALLOWED: NO
+        MARKETING_VERSION: "0.2.7"
+        CURRENT_PROJECT_VERSION: "8"
+        # Privacy keys injected at build time even if the plist file is ignored
+        INFOPLIST_KEY_NSCameraUsageDescription: "Camera access for photo and video capture."
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: "Microphone access for video recording."
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: "Save photos and videos to your library."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Access photos for gallery and LUT preview."
